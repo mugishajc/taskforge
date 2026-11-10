@@ -8,24 +8,23 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Tasks.Api.Auth;
 using Tasks.Api.Data;
+using Tasks.Api.Features.Comments;
 using Tasks.Api.Features.Projects;
 using Tasks.Api.Features.Tasks;
 using Tasks.Api.Features.Users;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddDbContext<AppDbContext>(opts =>
+var connectionString = builder.Configuration.GetConnectionString("Default");
+if (!string.IsNullOrWhiteSpace(connectionString) && connectionString.Contains("Host="))
 {
-    var cs = builder.Configuration.GetConnectionString("Default");
-    if (string.IsNullOrWhiteSpace(cs))
-    {
-        opts.UseSqlite("Data Source=tasks.db");
-    }
-    else
-    {
-        opts.UseSqlite(cs);
-    }
-});
+    builder.Services.AddDbContext<AppDbContext>(opts => opts.UseNpgsql(connectionString));
+}
+else
+{
+    builder.Services.AddDbContext<AppDbContext>(opts =>
+        opts.UseSqlite(string.IsNullOrWhiteSpace(connectionString) ? "Data Source=tasks.db" : connectionString));
+}
 
 builder.Services.AddControllers()
     .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
@@ -39,6 +38,7 @@ builder.Services.AddScoped<IJwtIssuer, JwtIssuer>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<ProjectService>();
 builder.Services.AddScoped<TaskService>();
+builder.Services.AddScoped<CommentService>();
 
 var jwt = builder.Configuration.GetSection("Jwt");
 var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(
